@@ -97,13 +97,12 @@ class PluginManager {
         
         // If an array of enabled plugins is provided, don't load the plugins not in the array
         if (is_array($enabledPlugins)) {
-        
             // For every plugin in the queue ...
-            foreach($this->loadingQueue as $k => $pluginIdentifier) {
+            foreach($this->loadingQueue as $pluginIdentifier => $load) {
                 // ... that is not in the array
                 if (!in_array($pluginIdentifier, $enabledPlugins)) {
                     // Remove the plugin from the queue
-                    unset($this->loadingQueue[$k]);
+                    unset($this->loadingQueue[$pluginIdentifier]);
                 }
             }
         }
