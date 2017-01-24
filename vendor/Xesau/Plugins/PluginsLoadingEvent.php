@@ -3,8 +3,8 @@
 namespace Xesau\Plugins;
 
 class PluginsLoadingEvent implements Event {
-	
-	private $manager;
+    
+    private $manager;
     
     public function __construct(PluginManager $manager) {
         $this->manager = $manager;
@@ -17,8 +17,8 @@ class PluginsLoadingEvent implements Event {
     public function getPlugins() {
         return $this->pluginManager->getPlugins();
     }
-	
-	function getName() {
-		return 'plugins.loading';
-	}
+    
+    function getName() {
+        return 'plugins.loading';
+    }
 }
