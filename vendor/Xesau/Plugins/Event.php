@@ -3,5 +3,5 @@
 namespace Xesau\Plugins;
 
 interface Event {
-	function getName();
+    function getName();
 }
