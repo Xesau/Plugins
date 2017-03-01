@@ -129,6 +129,9 @@ class PluginManager {
      * @return Plugin The plugin object
      */
     public function createPlugin($author, $name, $version = null, array $otherFields = []) {
+        if (isset($this->plugins[$author .'.'. $name]))
+            return false;
+        
         // Set initiation key to make sure no Plugin instance is created without the PluginManager knowing of it
         $this->pluginInitKey = $k = mt_rand();
         
