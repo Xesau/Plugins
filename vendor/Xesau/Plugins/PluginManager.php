@@ -126,7 +126,7 @@ class PluginManager {
      * @param string $name   The name of this plugin
      * @param mixed  $version The version of this plugin
      * @param mixed[string] $otherFields
-     * @return Plugin The plugin object
+     * @return Plugin|false The plugin object, or false if such a plugin is already loaded.
      */
     public function createPlugin($author, $name, $version = null, array $otherFields = []) {
         if (isset($this->plugins[$author .'.'. $name]))
@@ -265,7 +265,7 @@ class PluginManager {
      *
      * @param Event $event      The event
      * @param bool  $cancelable Whether a FALSE-value can cancel the event.
-     * @return void
+     * @return bool
      */
     public function call(Event $event, $cancelable = false) {
         // If there are listeners registered for this event
@@ -273,9 +273,10 @@ class PluginManager {
             // Call every listener until one returns FALSE
             foreach($this->listeners[$event->getName()] as $l) {
                 if (false === $l($event) && $cancelable === true)
-                    break;
+                    return false;
             }
         }
+        return true;
     }
     
     /**
