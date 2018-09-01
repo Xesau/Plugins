@@ -9,10 +9,10 @@ class PluginManager {
     
     /**
      * @var string $pluginDir     The directory containing all the plugin files.
-     * @var string $fileExtension The extension a file must have to be considered a plugin.
+     * @var string[] $fileExtensions The extension a file must have to be considered a plugin.
      */
     private $pluginDir;
-    private $fileExtension;
+    private $fileExtensions;
     
     /**
      * @var string[] $loadingQueue     The file names of the plugins to load.
@@ -26,24 +26,44 @@ class PluginManager {
     /**
      * @var array[]          $plugins   The plugins that are currently loaded.
      * @var callable[string] $listeners The event listeners.
+     * @var mixed            $service   The service object
      */
     private $plugins;
     private $listeners;
+    private $service;
     
     /**
      * Initiates a new Plugin Manager object
      *
      * @param string $pluginDir The directory where the plugin files are stored.
-     * @param string $fileExtension The file extension for all the files that should be regarded plugins.
+     * @param string $fileExtensions The file extension for all the files that should be regarded plugins.
      */
-    public function __construct($pluginDir, $fileExtension = 'php') {
+    public function __construct($pluginDir, $fileExtensions = '.php') {
         // Set config values
         $this->pluginDir = realpath($pluginDir);
-        $this->fileExtension = (string)$fileExtension;
+        $this->fileExtensions = (array)$fileExtensions;
         
         // Initiate maps
         $this->plugins = [];
         $this->listeners = [];
+    }
+    
+    /**
+     * Set the service object
+     * 
+     * @param mixed $service
+     */
+    public function setService($service) {
+        $this->service = $service;
+    }
+    
+    /**
+     * Get the service object
+     *
+     * @return mixed
+     */
+    public function getService() {
+        return $this->service;
     }
     
     /**
@@ -82,23 +102,29 @@ class PluginManager {
         $this->loadingQueue = [];
         
         // Search for plugins in the plugin directory
-        $files = glob($this->pluginDir . DIRECTORY_SEPARATOR .'*.'. $this->fileExtension);
-        foreach($files as $file) {
-            // If the plugin file is readable
-            if (is_readable($file)) {
-                // Get the base name (and thus identifier) of the plugin file
-                // (/plugins/Xesau.TestPlugin.php --> Xesau.TestPlugin)
-                $pluginIdentifier = basename($file, '.'. $this->fileExtension);
-                
-                // Add the plugin name to the loading queue with value true (so it is still in the queue)
-                $this->loadingQueue[$pluginIdentifier] = true;
+        foreach($this->fileExtensions as $fileExtension) {
+            $files = glob($this->pluginDir . DIRECTORY_SEPARATOR .'*'. $fileExtension);
+            foreach($files as $file) {
+                // If the plugin file is readable
+                if (is_readable($file)) {
+                    // Get the base name (and thus identifier) of the plugin file
+                    // (/home/site/plugins/Xesau.TestPlugin.php --> Xesau.TestPlugin)
+                    $filenameWithoutExtension = substr($file, 0, strrpos($file, $fileExtension));
+                    $pluginIdentifier = basename($filenameWithoutExtension);
+                    
+                    // Add the plugin name to the loading queue with value true (so it is still in the queue)
+                    if (isset($this->loadingQueue[$pluginIdentifier]))
+                        throw new Exception('Found conflicting plugin files: '. $file .' and '. $this->loadingQueue[$pluginIdentifier]);
+                    
+                    $this->loadingQueue[$pluginIdentifier] = $file;
+                }
             }
         }
         
         // If an array of enabled plugins is provided, don't load the plugins not in the array
         if (is_array($enabledPlugins)) {
             // For every plugin in the queue ...
-            foreach($this->loadingQueue as $pluginIdentifier => $load) {
+            foreach($this->loadingQueue as $pluginIdentifier => $file) {
                 // ... that is not in the array
                 if (!in_array($pluginIdentifier, $enabledPlugins)) {
                     // Remove the plugin from the queue
@@ -108,10 +134,10 @@ class PluginManager {
         }
         
         // Load all the plugins that remain in the loading queue
-        foreach($this->loadingQueue as $pluginIdentifier => &$mustBeLoaded) {
-            if ($mustBeLoaded === true) {
-                $mustBeLoaded = false;
-                self::loadPlugin($pluginIdentifier);
+        foreach($this->loadingQueue as $pluginIdentifier => &$file) {
+            if ($file !== false) {
+                $this->loadPlugin($file, $pluginIdentifier);
+                $file = false;
             }
         }
         
@@ -141,7 +167,6 @@ class PluginManager {
         
         // Reset the initiation key
         $this->pluginInitKey = null;
-        
         
         // Add the plugin to the map
         $this->plugins[$plugin->getIdentifier()] = $plugin;
@@ -204,12 +229,12 @@ class PluginManager {
     /**
      * Internal function to load a plugin from the plugin directory
      */
-    private function loadPlugin($pluginIdentifier) {
+    private function loadPlugin($file, $pluginIdentifier) {
         // Reset $this->hasCreatedPlugin
         $this->hasCreatedPlugin = false;
         
         // Include the plugin file
-        include_once $this->pluginDir . DIRECTORY_SEPARATOR .$pluginIdentifier .'.'. $this->fileExtension;
+        include_once $file;
         
         // If pluginInitKey is 
         if ($this->hasCreatedPlugin == false) {
@@ -242,13 +267,12 @@ class PluginManager {
         
         // The dependency is not yet loaded.
         // Check the loading queue to see if the plugin was found in the plugin directory
-        foreach($this->loadingQueue as $possiblePluginIdentifier => $shouldBeLoaded) {
+        foreach($this->loadingQueue as $possiblePluginIdentifier => $file) {
             // If the dependency would be found
             if ($pluginIdentifier == $possiblePluginIdentifier) {
                 // Remove the dependency from the loading queue and load it.
                 $this->loadingQueue[$possiblePluginIdentifier] = false;
-                
-                $this->loadPlugin($possiblePluginIdentifier);
+                $this->loadPlugin($file, $possiblePluginIdentifier);
                 $this->hasCreatedPlugin = true;
                 return;
             }
